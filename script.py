@@ -63,12 +63,8 @@ def extract_news(data_frame: pd.DataFrame):
     
     for i, row in data_frame.iterrows():
 
-        if i < 3000:
+        if i < 6000:
             continue
-
-        if i > 4000:
-            print("max limit...")
-            break
         
         try:
             response = requests.get(row['newsfeed_url'], timeout=60)
@@ -116,20 +112,59 @@ def visible(element):
 """
 Generate text statistics
 """
-def generate_news_statistics(data_frame: pd.DataFrame):
-    stats = []
+def describe_news_statistics(data_frame: pd.DataFrame, sent_range=100, word_range=200, unique_word_range=100):
+
+    headers = ["sent_min", "sent_max", "word_min", "word_max", "unique_min", "unique_max", "count"]
+    df = pd.DataFrame(columns=headers)
     
     if not "newsfeed_url" in data_frame or not "news_text" in data_frame:
         print("Not a valid dataframe input, exiting...")
         return
     
+    # generate count summary
     for i, row in data_frame.iterrows():
-        news_text = str(row["news_text"])
-        sentences = sent_tokenize(news_text)
-        words = word_tokenize(news_text)
-        unique_words = set(words)
         
-        stats.append([row["id"], len(sentences), len(words), len(news_text), len(unique_words)])
-        
-    headers = ['id', 'sentences', 'words', 'length', 'unique_words']
-    return pd.DataFrame(stats, columns=headers)
+        if not pd.isna(row["news_text"]):     
+            news_text = str(row["news_text"])
+            sentences = sent_tokenize(news_text)
+            words = word_tokenize(news_text)
+            unique_words = set(words)
+            sentence_count, word_count, unique_count = len(sentences), len(words), len(unique_words)
+            
+            # some computation for text stats
+            sent_partition = sentence_count // sent_range
+            sent_min, sent_max = (sent_partition * sent_range), ((sent_partition + 1) * sent_range)
+            
+            word_partition = word_count // word_range
+            word_min, word_max = (word_partition * word_range), ((word_partition + 1) * word_range)
+            
+            unique_partition = unique_count // unique_word_range
+            unique_min, unique_max = (unique_partition * unique_word_range), ((unique_partition + 1) * unique_word_range)
+
+            tmp_df = df.loc[(df["sent_min"] == sent_min) & (df["sent_max"] == sent_max) & (df["word_min"] == word_min) & (df["word_max"] == word_max) & (df["unique_min"] == unique_min) & (df["unique_max"] == unique_max)]
+            
+            if tmp_df.empty:
+                collection = []
+                tmp_data = [sent_min, sent_max, word_min, word_max, unique_min, unique_max, 1]
+                collection.append(tmp_data)
+                tmp_df = pd.DataFrame(collection, columns=headers)
+                df = pd.concat([df, tmp_df], ignore_index = True)
+                df.reset_index()
+            else:
+                inx = tmp_df.first_valid_index()
+                df.at[inx,'count'] = df.at[inx,'count'] + 1
+
+    df = df.sort_values(["sent_min", "sent_max", "word_min", "word_max", "unique_min", "unique_max"])
+    
+    for i, row in df.iterrows():
+        template = "Sentences [%d-%d] Words [%d-%d] Unique Words [%d-%d] : %d" % (row["sent_min"], row["sent_max"], 
+                        row["word_min"], row["word_max"], row["unique_min"], row["unique_max"], row["count"])
+        print(template)
+    
+    no_of_tweets, no_of_news = data_frame.shape[0], sum(df["count"])
+    print("\nSummary\n------------")
+    print("Total tweets collected : %d" % no_of_tweets)
+    print("Valid news items : %d" % no_of_news)
+    print("Tweets has expired or invalid news links: %d" % (no_of_tweets - no_of_news))
+    
+    return df
