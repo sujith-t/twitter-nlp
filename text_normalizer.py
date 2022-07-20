@@ -8,6 +8,7 @@ Created on Sat Jul 16 16:15:43 2022
 import re
 import nltk
 import string
+import pandas as pd
 
 from reserved_words import contraction_map as cm
 from reserved_words import stopword_list as sl
@@ -21,12 +22,17 @@ from nltk.stem import WordNetLemmatizer
 """
 
 
-def normalize_text(texts: list, lemmatize=True, is_text_only=False):
-    cleaned_txt = []
+def normalize_text(df: pd.DataFrame, lemmatize=True, is_text_only=False, tokenize=False):
+    #cleaned_txt = []
     html_parser = HTMLParser()
 
-    for txt in texts:
-        txt = html_parser.unescape(txt)
+    if not "news_text" in df:
+        print("Not a valid dataframe input having news_text, exiting...")
+        return
+    
+    for i, row in df.iterrows():
+        
+        txt = html_parser.unescape(row["news_text"])
         txt = translate_contraction(txt)
 
         txt = text_lemmatize(txt) if lemmatize else txt.lower()
@@ -35,17 +41,26 @@ def normalize_text(texts: list, lemmatize=True, is_text_only=False):
         words = nltk.word_tokenize(txt)
         pattern = re.compile('[{}]'.format(re.escape(string.punctuation)))
 
+        tmp_tokens = []
         for w in words:
             # check if text only
-            is_valid_text = not is_text_only or (is_text_only and re.search('[a-zA-Z]', w))
+            is_valid_text = not is_text_only or (is_text_only and re.search('^[a-zA-Z]+$', w))
             # has any punctuation character
             has_punctuation = pattern.sub('', w) == ''
             # stop word list
             word_in_stopword_list = w not in sl
-            if not has_punctuation and word_in_stopword_list and is_valid_text:
-                cleaned_txt.append(pattern.sub('', w))
+            if not has_punctuation and word_in_stopword_list and is_valid_text and len(w) <= 15:
+                tmp_tokens.append(pattern.sub('', w))
 
-        return cleaned_txt
+        if tokenize:
+            df.at[i, "normalized"] = tmp_tokens
+            #cleaned_txt = cleaned_txt + tmp_tokens
+        else:
+            df.at[i, "normalized"] = " ".join(tmp_tokens)
+            #cleaned_txt.append(" ".join(tmp_tokens))
+        
+        print(i)    
+    return df
 
 
 """
