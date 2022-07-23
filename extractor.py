@@ -27,6 +27,12 @@ def bag_of_words_extractor(texts, ngram_range=(1, 1)):
     return count_vectorizor, features
 
 
+"""
+# Generate a summary of features
+# produces a feature range and counts
+"""
+
+
 def feature_summary(features, feature_names, feature_range=100):
     df = pd.DataFrame(data=features, columns=feature_names)
     summary = pd.DataFrame(columns=["lower", "upper", "count"])
@@ -59,6 +65,13 @@ def feature_summary(features, feature_names, feature_range=100):
     print("\nTotal news items - %d" % sum(summary["count"]))
 
 
+"""
+# Category features are classified
+# similar category words are categorized
+# related categories are merged to the main category
+"""
+
+
 def classify_category_features(feature_names, categories, related_categories):
     category_dict = {}
 
@@ -76,6 +89,12 @@ def classify_category_features(feature_names, categories, related_categories):
         category_dict[cat] = list(set(category_dict[cat]))
 
     return category_dict
+
+
+"""
+# Categorize normalized words
+# produces a categorization on train data
+"""
 
 
 def data_naivebayes_classify_categories(category_features: dict, test_data: pd.DataFrame):
@@ -104,43 +123,37 @@ def data_naivebayes_classify_categories(category_features: dict, test_data: pd.D
     labels = []
     for i, row in test_data.iterrows():
         words = word_tokenize(row["normalized"])
-        match_features = find_match_feature(words)
-        label = classifier.classify(match_features)
+        #match_features = find_match_feature(words)
+        #label = classifier.classify(match_features)
+        label = classifier.classify({w: w for w in words})
         labels.append(label)
 
     return labels
 
 
-def get_metrics(true_labels, predicted_labels):
-    print('Accuracy:', np.round(
-        metrics.accuracy_score(true_labels,
-                               predicted_labels),
-        2))
-    print('Precision:', np.round(
-        metrics.precision_score(true_labels,
-                                predicted_labels,
-                                average='weighted'),
-        2))
-    print('Recall:', np.round(
-        metrics.recall_score(true_labels,
-                             predicted_labels,
-                             average='weighted'),
-        2))
-    print('F1 Score:', np.round(
-        metrics.f1_score(true_labels,
-                         predicted_labels,
-                         average='weighted'),
-        2))
+"""
+# Generate statistics on the model
+"""
 
 
-def train_predict_evaluate_model(classifier,
-                                 train_features, train_labels,
-                                 test_features, test_labels):
+def get_prediction_metrics_accuracy(true_labels, predicted_labels):
+    print('Accuracy:', np.round(metrics.accuracy_score(true_labels, predicted_labels), 2))
+    print('Precision:', np.round(metrics.precision_score(true_labels, predicted_labels,
+                                                         average='weighted', zero_division=True), 2))
+    print('Recall:', np.round(metrics.recall_score(true_labels, predicted_labels,
+                                                   average='weighted', zero_division=True), 2))
+    print('F1 Score:', np.round(metrics.f1_score(true_labels, predicted_labels,
+                                                 average='weighted', zero_division=True), 2))
+
+
+"""
+# Train the model with train data and generate predictions
+# produces a categorization on test data
+"""
+
+
+def train_predict_classification(classifier,  train_features, train_labels, test_features):
     # build model
     classifier.fit(train_features, train_labels)
     # predict using model
-    predictions = classifier.predict(test_features)
-    # evaluate model prediction performance
-    #get_metrics(true_labels=test_labels,
-    #            predicted_labels=predictions)
-    return predictions
+    return classifier.predict(test_features)
