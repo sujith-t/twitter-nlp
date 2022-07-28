@@ -77,9 +77,8 @@ def classify_category_features(feature_names, categories, related_categories):
 
     # build the base feature list and related feature for each category
     for cat in categories:
-        category_dict[cat] = list(filter(lambda v: re.match(cat, v), feature_names))
-
-    category_dict["unclassified"] = []
+        match_word = "(.*?)" + cat
+        category_dict[cat] = list(filter(lambda v: re.match(match_word, v), feature_names))
 
     for cat in related_categories:
         for rc in related_categories[cat]:
@@ -123,8 +122,8 @@ def data_naivebayes_classify_categories(category_features: dict, test_data: pd.D
     labels = []
     for i, row in test_data.iterrows():
         words = word_tokenize(row["normalized"])
-        #match_features = find_match_feature(words)
-        #label = classifier.classify(match_features)
+        # match_features = find_match_feature(words)
+        # label = classifier.classify(match_features)
         label = classifier.classify({w: w for w in words})
         labels.append(label)
 
@@ -152,8 +151,23 @@ def get_prediction_metrics_accuracy(true_labels, predicted_labels):
 """
 
 
-def train_predict_classification(classifier,  train_features, train_labels, test_features):
+def train_predict_classification(classifier, train_features, train_labels, test_features):
     # build model
     classifier.fit(train_features, train_labels)
     # predict using model
     return classifier.predict(test_features)
+
+
+from collections import Counter
+
+
+def counter_word(df: pd.DataFrame):
+    df["normalized"] = df["normalized"].values.astype('U')
+
+    count = Counter()
+    for i, row in df.iterrows():
+        words = word_tokenize(row["normalized"])
+        for w in words:
+            count[w] += 1
+
+    return count
